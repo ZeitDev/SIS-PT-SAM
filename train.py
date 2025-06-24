@@ -1,3 +1,11 @@
+# %%
+# --- Configuration for Interactive vs. Terminal Execution ---
+# Set this flag to True if you are running in an interactive environment (e.g., Jupyter, VSCode notebook)
+# Set it to False if you are running the script from the terminal
+RUNNING_INTERACTIVELY = True
+
+# %% 
+# Imports
 import os
 import random
 import monai
@@ -26,6 +34,13 @@ matplotlib.use('pdf')
 from matplotlib import pyplot as plt
 import argparse
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+print(f'CUDA_VISIBLE_DEVICES set to = {os.environ.get("CUDA_VISIBLE_DEVICES")}')
+print(f'Cuda available: {torch.cuda.is_available()}')
+
+
+# %%
+# Getting args
 parser = argparse.ArgumentParser()
 parser.add_argument('-i', '--tr-npy-path', type=str, help="Path to the training data root directory.", required=True)
 parser.add_argument('-v', '--val-npy-path', type=str, help="Path to the validation data root directory.", required=True)
@@ -46,37 +61,55 @@ parser.add_argument('--train-from-scratch', action="store_true", help='Train fro
 parser.add_argument('--dataset', type=str, help='The name abbreviation of the dataset')
 parser.add_argument('--multi-gpu', action='store_true', help='The number of multiple GPU for training')
 
-args = parser.parse_args()
+if RUNNING_INTERACTIVELY:
+    # Manually set arguments for interactive execution.
+    # These values will be used when RUNNING_INTERACTIVELY is True.
+    args = argparse.Namespace(
+        tr_npy_path='./data/CholecSeg8k/train/',
+        val_npy_path='./data/CholecSeg8k/val/',
+        sam_ckpt='./ckpt/mobile_sam.pt',
+        work_dir='./results/',
+        max_epochs=1,
+        batch_size=4,
+        num_workers=8,
+        learn_rate=1e-5,
+        weight_decay=0.01,
+        seed=2023,
+        data_aug=True,
+        freeze_image_encoder=False,
+        freeze_prompt_encoder=True,
+        freeze_mask_decoder=False,
+        multi_dataset=False,
+        train_from_scratch=False,
+        dataset='CholecSeg8k', # Example value, adjust as needed
+        multi_gpu=False
+    )
+else:
+    # Parse arguments from the command line
+    args = parser.parse_args()
 
-data_root = args.tr_npy_path
-val_data_root = args.val_npy_path
-work_dir = args.work_dir
-num_epochs = args.max_epochs
-batch_size = args.batch_size
-num_workers = args.num_workers
-sam_ckpt = args.sam_ckpt
-data_aug = args.data_aug
-seed = args.seed
+# %%
+# Run
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #"cuda:0"
-makedirs(work_dir, exist_ok=True)
+makedirs(args.work_dir, exist_ok=True)
 
 torch.cuda.empty_cache()
-os.environ['PYTHONHASHSEED']=str(seed)
-random.seed(seed)
-np.random.seed(seed)
-torch.manual_seed(seed)
-torch.cuda.manual_seed(seed)
+os.environ['PYTHONHASHSEED']=str(args.seed)
+random.seed(args.seed)
+np.random.seed(args.seed)
+torch.manual_seed(args.seed)
+torch.cuda.manual_seed(args.seed)
 
 mobile_sam_ckpt = './ckpts/mobile_sam.pt'         
 surgicaltool_sam = SurgicalToolSAM(
-    ckpt=mobile_sam_ckpt,#sam_ckpt, 
-    freeze_image_encoder=False, 
-    freeze_prompt_encoder=True,
-    freeze_mask_decoder=False,
+    ckpt=mobile_sam_ckpt, # Using hardcoded mobile_sam for base model
+    freeze_image_encoder=args.freeze_image_encoder, 
+    freeze_prompt_encoder=args.freeze_prompt_encoder,
+    freeze_mask_decoder=args.freeze_mask_decoder,
 )
 if not args.train_from_scratch:
-    sam_ckpt = torch.load(sam_ckpt)
-    surgicaltool_sam.load_state_dict(sam_ckpt['model'])
+    sam_checkpoint = torch.load(args.sam_ckpt)
+    surgicaltool_sam.load_state_dict(sam_checkpoint['model'])
 
 if args.multi_gpu:
     surgicaltool_sam = nn.DataParallel(surgicaltool_sam, device_ids=[0,1,2,3])
@@ -102,15 +135,15 @@ optimizer = optim.AdamW(
 start_epoch = 0
 best_loss = 1e10
 
-scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=num_epochs)
+scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=args.max_epochs)
 
 seg_loss = monai.losses.DiceLoss(sigmoid=True, squared_pred=True, reduction='mean')
 ce_loss = nn.BCEWithLogitsLoss(reduction="mean")
 
-train_dataset = FinetuneDataset(data_root=data_root, dataset_name=args.dataset, data_aug=data_aug, status='train')
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
-val_dataset = FinetuneDataset(data_root=val_data_root, dataset_name=args.dataset, data_aug=False, status='val')
-val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
+train_dataset = FinetuneDataset(data_root=args.tr_npy_path, dataset_name=args.dataset, data_aug=args.data_aug, status='train')
+train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, pin_memory=True)
+val_dataset = FinetuneDataset(data_root=args.val_npy_path, dataset_name=args.dataset, data_aug=False, status='val')
+val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, pin_memory=True)
 torch.cuda.empty_cache()
 
 epoch_time = []
@@ -118,7 +151,7 @@ losses = []
 val_losses = []
 lr_list = []
 
-for epoch in range(start_epoch, num_epochs):
+for epoch in range(start_epoch, args.max_epochs):
     epoch_loss = [1e10 for _ in range(len(train_loader))]
     epoch_start_time = time()
     pbar = tqdm(train_loader)
@@ -156,7 +189,7 @@ for epoch in range(start_epoch, num_epochs):
         "best_loss": best_loss
     }
 
-    torch.save(checkpoint, join(work_dir, "surgicaltoolsam_latest.pth"))
+    torch.save(checkpoint, join(args.work_dir, "surgicaltoolsam_latest.pth"))
 
     # validation
     val_epoch_loss = [1e10 for _ in range(len(val_loader))]
@@ -183,7 +216,7 @@ for epoch in range(start_epoch, num_epochs):
         print(f"New best validation loss: {best_loss:.4f} -> {val_epoch_loss_reduced:.4f}")
         best_loss = val_epoch_loss_reduced
         checkpoint["best_loss"] = best_loss
-        torch.save(checkpoint, join(work_dir, "surgicaltoolsam_best.pth"))
+        torch.save(checkpoint, join(args.work_dir, "surgicaltoolsam_best.pth"))
 
 
     epoch_end_time = time()
@@ -214,7 +247,7 @@ for epoch in range(start_epoch, num_epochs):
     ax4.set_xlabel("Epoch")
     ax4.set_ylabel("Learning Rate")
     
-    fig.savefig(join(work_dir, "medsam_point_prompt_loss_time.png"))
+    fig.savefig(join(args.work_dir, "medsam_point_prompt_loss_time.png"))
 
     epoch_loss_reduced = 1e10
     val_epoch_loss_reduced = 1e10
