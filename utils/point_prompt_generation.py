@@ -146,7 +146,6 @@ class PointPromptGeneratorCLIPSeg:
         from transformers import CLIPSegProcessor, CLIPSegForImageSegmentation
         self.clipseg_processor = CLIPSegProcessor.from_pretrained("CIDAS/clipseg-rd64-refined")
         self.clipseg_model = CLIPSegForImageSegmentation.from_pretrained("CIDAS/clipseg-rd64-refined")
-        self.clipseg_model.clip.vision_model.embeddings.image_size = self.clipseg_processor.image_processor.size["height"]
         self.vis_image_path = vis_path
         os.makedirs(self.vis_image_path, exist_ok=True)
 
@@ -161,8 +160,7 @@ class PointPromptGeneratorCLIPSeg:
         (W, H) = clipseg_img.size
         clipseg_inputs = self.clipseg_processor(text=text_prompt, images=[clipseg_img] * len(text_prompt), padding="max_length", return_tensors="pt")
         with torch.no_grad():
-            #clipseg_outputs = self.clipseg_model(**clipseg_inputs)
-            clipseg_outputs = self.clipseg_model(**clipseg_inputs, interpolate_pos_encoding=True)
+            clipseg_outputs = self.clipseg_model(**clipseg_inputs)
         clipseg_preds = clipseg_outputs.logits.unsqueeze(1)
         mask = clipseg_preds[0].squeeze()
         mask = torch.sigmoid(mask)
