@@ -3,7 +3,7 @@
 
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
-
+# %%
 import os
 import torch
 from torchvision.transforms import ToTensor
@@ -21,6 +21,8 @@ from utils.point_prompt_generation import PointPromptGenerator, PointPromptGener
 # Unfortunately MPS acceleration does not support all the features we require,
 # but we may be able to enable it in the future
 from dataset import min_max_normolization, standardization
+from utils.interactive_session import is_interactive_session
+from utils import init
 
 DEFAULT_DEVICE = ("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -141,6 +143,7 @@ def draw_dashed_line_contour(image, mask):
     frame_contour = cv2.cvtColor(frame_contour, cv2.COLOR_RGB2BGR)
     cv2.drawContours(frame_contour, contours, -1, (0, 255, 0), 2)
 
+# %%
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--video_path", required=True, help="path to a video",)
@@ -161,8 +164,31 @@ if __name__ == "__main__":
     parser.add_argument("--mask_dir_path", "-md", type=str, default="./data/assets/endovis15_test_1", help="path to the mask directory",)
     parser.add_argument("--save_demo", action="store_true", help="if saving demo video",)
     parser.add_argument("--sam-ckpt", type=str, help="sam ckpt path",)
-
-    args = parser.parse_args()
+    
+    if is_interactive_session():
+        print('Running in an interactive session, using defined arguments.')
+        args = argparse.Namespace(
+            video_path = './data/CholecSeg8k/video01/video01_28820.mp4',
+            tracker = 'cotracker',
+            grid_size = 10,
+            grid_query_frame = 0,
+            mode = 'kmedoids',
+            sam_type = 'finetune',
+            tool_number = 1,
+            instance_point_number = 5,
+            add_support_grid = True,
+            use_clipseg = True,
+            output_mask_path = './results/predicted_mask',
+            output_vis_path = './results/vis_mask',
+            first_frame_path = './data/CholecSeg8k/video01/video01_28820/images/frame_28820_endo.png',
+            first_mask_path = './data/CholecSeg8k/video01/video01_28820/images/frame_28820_endo_color_mask.png',
+            mask_dir_path = None,
+            save_demo = True,
+            sam_ckpt = './ckpts/sissampt_ckpt.pth'
+        )
+    else:
+        print('Running from the terminal, parsing command-line arguments.')
+        args = parser.parse_args()
 
     if not os.path.isfile(args.video_path):
         raise ValueError("Video file does not exist")
@@ -184,6 +210,8 @@ if __name__ == "__main__":
     else:
         mask_dir_path = None
     segm_mask = np.array(Image.open(input_mask_path))
+    if args.use_clipseg:
+        segm_mask = cv2.resize(segm_mask, (224, 224))
     if segm_mask.shape[-1] == 3:
         segm_mask = cv2.cvtColor(segm_mask, cv2.COLOR_BGR2GRAY)
     
@@ -458,3 +486,5 @@ if __name__ == "__main__":
             video.write(img)
         # Release the video writer
         video.release()
+        
+# %%

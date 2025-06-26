@@ -329,6 +329,9 @@ class FinetuneDataset(Dataset):
                 coords = np.array(coords) # (point_num, 2)   
                 assert coords.shape == (point_num, 2), 'prompt size should be (point_num, 2)'
 
+        else:
+            raise ValueError(f"Unknown dataset '{self.dataset}'. No logic to generate prompt coordinates.")
+
         ## resize gt2D to (256, 256)
         gt2D_256 = cv2.resize(
             gt2D,

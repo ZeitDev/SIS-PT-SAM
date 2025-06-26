@@ -1,8 +1,12 @@
+# %%
 import os
 from sklearn.metrics import jaccard_score, f1_score, precision_recall_fscore_support
 import cv2
 import matplotlib.pyplot as plt
 import argparse
+from utils.interactive_session import is_interactive_session
+
+
 
 def calculate_metrics(pred_path, gt_path):
     preds = sorted(os.listdir(pred_path))
@@ -38,7 +42,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--pred_path', type=str, default='./results/predicted_mask', help='path to predicted masks')
     parser.add_argument('--gt_path', type=str, help='path to ground truth masks')
-    args = parser.parse_args()
+    
+    if is_interactive_session():
+        print('Running in an interactive session, using defined arguments.')
+        args = argparse.Namespace()
+        args.pred_path = './results/predicted_mask'
+        args.gt_path = '/data/CholecSeg8k/val'
+    else:
+        print('Running from the terminal, parsing command-line arguments.') 
+        args = parser.parse_args()
 
     pred_path = args.pred_path
     gt_path = args.gt_path
@@ -49,3 +61,6 @@ if __name__ == '__main__':
 
     print(avrg_iou)
     print(avrg_dice)
+    
+
+# %%

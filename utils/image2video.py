@@ -1,16 +1,27 @@
+# %%
 import os
 import cv2
 import argparse
+import init
+from utils.interactive_session import is_interactive_session
 
+# %%
 if __name__ == "__main__":
-    
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--path', type=str, default='images', help='path to the folder containing images')
+    parser.add_argument('--file_ending', type=str, default='.png', help='file ending of the images')
     parser.add_argument('--fps', type=int, default=25, help='frames per second')
-    parser.add_argument('--output', type=str, default='output.mp4', help='path to the output video file')
 
-    args = parser.parse_args()
+    if is_interactive_session():
+        print('Running in an interactive session, using defined arguments.')
+        args = argparse.Namespace()
+        args.path = './data/CholecSeg8k/video01/video01_28820/images'
+        args.file_ending = '_endo.png'
+        args.fps = 25
+    else:
+        print('Running from the terminal, parsing command-line arguments.') 
+        args = parser.parse_args()
     
     # Get the path to the folder containing images
     path = args.path
@@ -19,11 +30,16 @@ if __name__ == "__main__":
     fps = args.fps
 
     # Get the path to the output video file
-    output = args.output
+    output = f'./data/{os.path.join(*path.split(os.sep)[2:-1])}' + '.mp4'
+    os.makedirs(os.path.dirname(output), exist_ok=True)
 
     # Get the list of all the images
-    images_list = sorted(os.listdir(path))#, key=lambda x: int(x.split('.')[0]))
-    images = [os.path.join(path, image) for image in images_list]
+    images = []
+    for dirpath, _, filenames in os.walk(path):
+        for filename in sorted(filenames):
+            if filename.endswith(args.file_ending):
+                images.append(os.path.join(dirpath, filename))
+                
 
     # Get the height and width of the first image
     height, width, _ = cv2.imread(images[0]).shape
@@ -44,3 +60,5 @@ if __name__ == "__main__":
 
     # Release the video writer
     video.release()
+
+# %%

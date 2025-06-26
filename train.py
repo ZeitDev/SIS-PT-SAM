@@ -1,8 +1,11 @@
 # %%
 # --- Configuration for Interactive vs. Terminal Execution ---
-# Set this flag to True if you are running in an interactive environment (e.g., Jupyter, VSCode notebook)
-# Set it to False if you are running the script from the terminal
-RUNNING_INTERACTIVELY = True
+# Automatically detect if running in an interactive environment (e.g., Jupyter, VSCode notebook)
+
+'''
+# * Terminal Command
+CUDA_VISIBLE_DEVICES=1 taskset -c "0-23" uv run train.py -i ../../data/CholecSeg8k/train/ -v ../../data/CholecSeg8k/val/ --train-from-scratch --work-dir ./results/exp_cholecseg8k --max-epochs 1 --data-aug --freeze-prompt-encoder --batch-size 4 --learn-rate 1e-5 --dataset cholecseg
+'''
 
 # %% 
 # Imports
@@ -26,7 +29,8 @@ from typing import Optional, Tuple
 # sys.path.append('/home/zijianwu/projects/def-timsbc/zijianwu/codes/MedSAM/')
 from mobile_sam.build_sam import sam_model_registry
 from surgical_tool_sam import SurgicalToolSAM
-from dataset import FinetuneDataset
+from dataset import FinetuneDataset 
+from utils.interactive_session import is_interactive_session
 
 import cv2
 import matplotlib
@@ -34,10 +38,7 @@ matplotlib.use('pdf')
 from matplotlib import pyplot as plt
 import argparse
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-print(f'CUDA_VISIBLE_DEVICES set to = {os.environ.get("CUDA_VISIBLE_DEVICES")}')
-print(f'Cuda available: {torch.cuda.is_available()}')
-
+from utils import init
 
 # %%
 # Getting args
@@ -61,31 +62,30 @@ parser.add_argument('--train-from-scratch', action="store_true", help='Train fro
 parser.add_argument('--dataset', type=str, help='The name abbreviation of the dataset')
 parser.add_argument('--multi-gpu', action='store_true', help='The number of multiple GPU for training')
 
-if RUNNING_INTERACTIVELY:
-    # Manually set arguments for interactive execution.
-    # These values will be used when RUNNING_INTERACTIVELY is True.
+if is_interactive_session():
+    print('Running in an interactive session, using defined arguments.')
     args = argparse.Namespace(
-        tr_npy_path='./data/CholecSeg8k/train/',
-        val_npy_path='./data/CholecSeg8k/val/',
-        sam_ckpt='./ckpt/mobile_sam.pt',
-        work_dir='./results/',
-        max_epochs=1,
-        batch_size=4,
-        num_workers=8,
-        learn_rate=1e-5,
-        weight_decay=0.01,
-        seed=2023,
-        data_aug=True,
-        freeze_image_encoder=False,
-        freeze_prompt_encoder=True,
-        freeze_mask_decoder=False,
-        multi_dataset=False,
-        train_from_scratch=False,
-        dataset='CholecSeg8k', # Example value, adjust as needed
-        multi_gpu=False
+        tr_npy_path = '../../data/CholecSeg8k/train',
+        val_npy_path = '../../data/CholecSeg8k/val',
+        sam_ckpt = None,
+        work_dir = './results/CholecSeg8k_Test',
+        max_epochs = 1,
+        batch_size = 4,
+        num_workers = 8,
+        learn_rate = 1e-5,
+        weight_decay = 0.01,
+        seed = 2023,
+        data_aug = True,
+        freeze_image_encoder = False,
+        freeze_prompt_encoder = True,
+        freeze_mask_decoder = False,
+        multi_dataset = False,
+        train_from_scratch = True,
+        dataset = 'cholecseg',
+        multi_gpu = False
     )
 else:
-    # Parse arguments from the command line
+    print('Running from the terminal, parsing command-line arguments.')
     args = parser.parse_args()
 
 # %%
@@ -251,3 +251,6 @@ for epoch in range(start_epoch, args.max_epochs):
 
     epoch_loss_reduced = 1e10
     val_epoch_loss_reduced = 1e10
+    
+    
+# %%
