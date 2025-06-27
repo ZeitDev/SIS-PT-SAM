@@ -21,8 +21,10 @@ from utils.point_prompt_generation import PointPromptGenerator, PointPromptGener
 # Unfortunately MPS acceleration does not support all the features we require,
 # but we may be able to enable it in the future
 from dataset import min_max_normolization, standardization
-from utils.interactive_session import is_interactive_session
+
+
 from utils import init
+from utils.interactive_session import is_interactive_session
 
 DEFAULT_DEVICE = ("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -168,7 +170,7 @@ if __name__ == "__main__":
     if is_interactive_session():
         print('Running in an interactive session, using defined arguments.')
         args = argparse.Namespace(
-            video_path = './data/CholecSeg8k/video01/video01_28820.mp4',
+            video_path = './data/CholecSeg8k/video55/video55_00508/video/video55_00508.mp4',
             tracker = 'cotracker',
             grid_size = 10,
             grid_query_frame = 0,
@@ -177,11 +179,11 @@ if __name__ == "__main__":
             tool_number = 1,
             instance_point_number = 5,
             add_support_grid = True,
-            use_clipseg = True,
+            use_clipseg = False,
             output_mask_path = './results/predicted_mask',
             output_vis_path = './results/vis_mask',
-            first_frame_path = './data/CholecSeg8k/video01/video01_28820/images/frame_28820_endo.png',
-            first_mask_path = './data/CholecSeg8k/video01/video01_28820/images/frame_28820_endo_color_mask.png',
+            first_frame_path = './data/CholecSeg8k/video55/video55_00508/images/frame_508_endo.png',
+            first_mask_path = './data/CholecSeg8k/video55/video55_00508/images/frame_508_endo_binary_mask.png',
             mask_dir_path = None,
             save_demo = True,
             sam_ckpt = './ckpts/sissampt_ckpt.pth'
@@ -211,7 +213,8 @@ if __name__ == "__main__":
         mask_dir_path = None
     segm_mask = np.array(Image.open(input_mask_path))
     if args.use_clipseg:
-        segm_mask = cv2.resize(segm_mask, (224, 224))
+        pass
+        #segm_mask = cv2.resize(segm_mask, (224, 224))
     if segm_mask.shape[-1] == 3:
         segm_mask = cv2.cvtColor(segm_mask, cv2.COLOR_BGR2GRAY)
     

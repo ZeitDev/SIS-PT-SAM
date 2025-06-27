@@ -2,7 +2,7 @@
 import os
 import cv2
 import argparse
-import init
+import utils.init
 from utils.interactive_session import is_interactive_session
 
 # %%
@@ -16,7 +16,7 @@ if __name__ == "__main__":
     if is_interactive_session():
         print('Running in an interactive session, using defined arguments.')
         args = argparse.Namespace()
-        args.path = './data/CholecSeg8k/video01/video01_28820/images'
+        args.path = './data/CholecSeg8k/video55/video55_00508/images'
         args.file_ending = '_endo.png'
         args.fps = 25
     else:
